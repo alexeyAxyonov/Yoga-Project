@@ -1,5 +1,6 @@
 from functools import partial
 from os import listdir, path, remove
+# Добавляю функции из библиотек
 
 from CustomMDSlider import CustomMDSlider
 from file_functions import write_new_exercise_rest_time
@@ -45,13 +46,15 @@ from kivymd.uix.dialog import (
     MDDialogContentContainer, MDDialogSupportingText,
 )
 
-# Window.size = (1080, 2460)
-
+# Это пригодится позже. В моём коде много такого.
 exercise_items = [x.replace('.txt', '') for x in listdir('exercises')]
 sound_complete = SoundLoader.load(path.join("sounds", "set_complete_sound.wav"))
 sound_rest = SoundLoader.load(path.join("sounds", "rest_complete.wav"))
+# А это вообще сделано плохо. Наверно.
 past_fifthscreen_val = None
 
+# Загрузка программы на kv языке. Помогает при построении. Идея в том, что вся логика в Python, а дизайн в kv. 
+# Только у меня в основном и дизайн, и логика в Python. Не понравился kv
 Builder.load_string("""
 
 <CustomOneLineIconListItem>
@@ -67,9 +70,6 @@ Builder.load_string("""
         size: ("40dp", "40dp")
     MDIconButton:
         on_press: 
-            # Basically, this gets the previous_screen variable (which is also a screen) of the FourthScreen, which in 
-            # turn calls its add_exercise function
-            # Yes, this is an abomination. I know that.
             previous_screen_var = app.get_running_app().root.get_screen("Fourth").previous_screen
             app.get_running_app().root.get_screen(previous_screen_var).add_exercise(root)
             app.change_to_screen(previous_screen_var)
@@ -112,7 +112,6 @@ Builder.load_string("""
                 height: self.minimum_height
                 orientation: 'vertical'
 
-
 <CircularProgressBar>
     canvas.before:
         Color:
@@ -127,7 +126,7 @@ Builder.load_string("""
             width: root.bar_width
             ellipse: (self.x, self.y, self.width, self.height, 0, (360 - self.set_value*3.6))
 
-
+# На 99% уверен один из этих можно убрать, но мне страшно это делать.
 <ExerciseSetLayout>
 <ExerciseSetLayout>
     
@@ -148,6 +147,9 @@ Builder.load_string("""
 
 
 class YogaApp(MDApp):
+    """
+    Приложение, на котором вообще всё строится. Больше сказать нечего.
+    """
     rv_data = ListProperty()
 
     def __init__(self, **kwargs):
@@ -160,6 +162,7 @@ class YogaApp(MDApp):
         self.rv_data = [{'text': item} for item in rv_data_list]
 
     def build(self):
+        # Создан ScreenManager. Это класс, отвечающий за разные экраны. Не на одном же всё писать
         self.sm = ScreenManager(transition=NoTransition())
         self.sm.add_widget(FirstScreen(name='First'))
         self.sm.add_widget(SecondScreen(name='Second'))
@@ -169,12 +172,9 @@ class YogaApp(MDApp):
         self.sm.add_widget(SixthScreen(name='Sixth'))
         self.sm.add_widget(SeventhScreen(name='Seventh'))
         #self.sm.add_widget(AutoMode(name="Auto"))
-        print("SM_CHILDREN: ", app.sm.children)
-
         return self.sm
-
+    # Куча функций для перемещения между экранами. Однотипные, но у некоторых есть особые функции, которые вызываются здесь.
     def change_to_screen(self, s, *args, **kwargs):
-        print("SM_CHILDREN: ", app.sm.children)
         self.sm.current = s
 
     def change_to_First(self, info=False, *args):
@@ -206,7 +206,8 @@ class YogaApp(MDApp):
 
     def change_to_Seventh(self, *args):
         self.sm.current = 'Seventh'
-
+    
+    # Авторежим. Я хотел его встроить, но не получилось. Читающий может увидеть останки от этой идеи по всему коду (но чем дальше к концу, тем больше).
     def change_to_Auto(self, *args):
         self.sm.current = "Auto"
         app.sm.current_screen.create_widgets()
@@ -214,9 +215,7 @@ class YogaApp(MDApp):
 
 class FirstScreen(MDScreen):
     """
-    The first screen the user sees. It is the screen for creating a workout or a workout
-    template. It also shows all of your created templates which you can click for the second
-    screen to pop up
+    Самый первый экран. Пользователь может увидеть
     """
     total_training_sessions = 0
     total_training_sessions_text = 'Всего занятий йогой: ' + str(total_training_sessions)
