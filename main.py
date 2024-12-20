@@ -215,7 +215,7 @@ class YogaApp(MDApp):
 
 class FirstScreen(MDScreen):
     """
-    Самый первый экран. Пользователь может увидеть
+    Самый первый экран. Пользователь может увидеть все шаблоны тренировок и выбрать один из них для тренировки.
     """
     total_training_sessions = 0
     total_training_sessions_text = 'Всего занятий йогой: ' + str(total_training_sessions)
