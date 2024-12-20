@@ -63,7 +63,9 @@ Builder.load_string("""
         icon: "information"
         theme_icon_color: "Custom"
         on_press: app.get_running_app().root.get_screen("Fourth").make_info_popup(root)
-    MDButton:
+        size_hint: (None, None)
+        size: ("40dp", "40dp")
+    MDIconButton:
         on_press: 
             # Basically, this gets the previous_screen variable (which is also a screen) of the FourthScreen, which in 
             # turn calls its add_exercise function
@@ -71,10 +73,9 @@ Builder.load_string("""
             previous_screen_var = app.get_running_app().root.get_screen("Fourth").previous_screen
             app.get_running_app().root.get_screen(previous_screen_var).add_exercise(root)
             app.change_to_screen(previous_screen_var)
-        MDButtonIcon:
-            icon: "plus"
-        MDButtonText:
-            text: "Добавить Упражнение"
+        icon: "plus"
+        size_hint: (None, None)
+        size: ("40dp", "40dp")
 
 <PreviousExercises>
     MDBoxLayout:
@@ -168,17 +169,19 @@ class YogaApp(MDApp):
         self.sm.add_widget(SixthScreen(name='Sixth'))
         self.sm.add_widget(SeventhScreen(name='Seventh'))
         #self.sm.add_widget(AutoMode(name="Auto"))
+        print("SM_CHILDREN: ", app.sm.children)
 
         return self.sm
 
     def change_to_screen(self, s, *args, **kwargs):
+        print("SM_CHILDREN: ", app.sm.children)
         self.sm.current = s
 
     def change_to_First(self, info=False, *args):
         self.sm.current = 'First'
         app.sm.current_screen.change_need_to_update(info)
 
-    def change_to_Second(self, template, additional_template_info, *args):
+    def change_to_Second(self, template, *args):
         app.change_to_screen('Second')
         app.get_running_app().root.get_screen('Second').create_widgets(template)
 
@@ -265,10 +268,10 @@ class FirstScreen(MDScreen):
             for filename in listdir('templates'):
                 with open(path.join('templates', filename), 'r', encoding='utf-8') as file:
                     # self.amount_of_templates += 1
-                    template_name = filename.replace('.txt', '')
+                    template_name = str(file.readline()).replace("\n", "")
                     self.template_layout = CustomMDCard(orientation='vertical', size_hint_y=None, padding='10dp',
                                                         adaptive_height=True, template_name=filename)
-                    self.lbl_name = MDLabel(text=str(filename.replace('.txt', '')), size_hint_y=None, height=20,
+                    self.lbl_name = MDLabel(text=template_name, size_hint_y=None, height=20,
                                             adaptive_height=True)
                     self.template_layout.add_widget(self.lbl_name)
                     k = 0  # Считает кол-во упражнений в шаблоне
@@ -292,15 +295,19 @@ class FirstScreen(MDScreen):
                         k += 1
                         if not exercise_info:
                             break
-                        num_of_exercise, exercise = exercise_info
+                        num_of_exercise, exercise_file_name = exercise_info
                         num_of_exercise = str(num_of_exercise.replace("\n", ""))
-                        exercise = str(exercise.replace("\n", ""))
+                        exercise_file_name = exercise_file_name.replace("\n", "") + ".txt"
+
+                        exercise_file = open(path.join("exercises", exercise_file_name), "r", encoding='utf-8')
+                        exercise = str(exercise_file.readline()).replace("\n", "")
+                        exercise_file.close()
                         text_1 = str(k) + " - " + exercise + " x" + num_of_exercise
                         self.template_lbl = MDLabel(text=text_1, size_hint_y=None, height=20, adaptive_height=True)
                         self.template_layout.add_widget(self.template_lbl)
 
                     self.template_btn = MDButton(MDButtonText(text="Начать тренировку"), size_hint=(1, 1))
-                    self.template_btn.bind(on_press=partial(app.change_to_Second, template_name))
+                    self.template_btn.bind(on_press=partial(app.change_to_Second, filename))
                     self.template_layout.add_widget(self.template_btn)
                     self.layout.add_widget(self.template_layout)
                     file.close()
@@ -436,6 +443,7 @@ class SecondScreen(MDScreen):
             print("Started")
         else:
             if self.started:
+                print("app.sm.current_screen: ", app.sm.current_screen)
                 app.sm.current_screen.clear_widgets()  # Убирает прошлый экран
 
             self.all_exercise_input_items = []
@@ -443,7 +451,12 @@ class SecondScreen(MDScreen):
             self.nums_of_set = []
             self.started = True
             self.past_template = template
-            name = str(template)
+
+            file = open(path.join('templates', template), 'r', encoding='utf-8')
+            self.name_var_22 = str(file.readline()).replace("\n", "")
+            template_info = file.readlines()
+            file.close()
+
             layout_root = MDScrollView(do_scroll_x=False, do_scroll_y=True, size_hint=(1, 1))
             layout_root.md_bg_color = app.theme_cls.backgroundColor
             self.layout = MDBoxLayout(orientation='vertical', size_hint=(1, None), padding='10dp',
@@ -460,7 +473,7 @@ class SecondScreen(MDScreen):
                                                     size=('120dp', '60dp'))
 
             top_app_bar = MDTopAppBar(MDTopAppBarLeadingButtonContainer(btn_cancel), MDTopAppBarTitle(
-                text=name),
+                text=self.name_var_22),
                                       MDTopAppBarTrailingButtonContainer(self.btn_rest, self.btn_auto),
                                       type="small", pos_hint={"center_x": .5, "top": 1})
 
@@ -468,17 +481,11 @@ class SecondScreen(MDScreen):
             #self.btn_auto.bind(on_release=self.engage_auto_mode)
             self.layout.add_widget(top_app_bar)
 
-            # Далее с генеалогическим деревом данного класса начинается полный пиздец. Это не шутка.
             self.parent_layout = MDBoxLayout(orientation='vertical', size_hint=(1, None), adaptive_height=True)
 
             self.time_lbl = MDLabel(text="Время тренировки: ", size_hint=(1, None), height="40dp")
             self.layout.add_widget(self.time_lbl)
             self.layout.add_widget(self.parent_layout)
-
-            file_name = str("{}.txt".format(template))
-            file = open(path.join('templates', file_name), 'r', encoding='utf-8')
-            template_info = file.readlines()
-            file.close()
 
             *self.all_exercise_info, self.extra_template_info = template_info
             if self.extra_template_info.replace("\n", "") in exercise_items:
@@ -488,7 +495,8 @@ class SecondScreen(MDScreen):
             print("Additional info: ", self.extra_template_info)
 
             self.num_of_exercise = 0
-            self.current_template = file_name
+            # TODO: check for this also
+            self.current_template = template
             while True:
                 some_layout = MDBoxLayout(orientation='vertical', size_hint=(1, None), padding='4dp',
                                           adaptive_height=True)
@@ -501,15 +509,16 @@ class SecondScreen(MDScreen):
                 self.num_of_exercise += 1
                 self.all_exercise_input_items.append([])
 
-                self.num_of_set, self.exercise = exercise_info_from_template
+                self.num_of_set, self.exercise_name = exercise_info_from_template
+                exercise_file = open(path.join('exercises', ((self.exercise_name).replace("\n", "")+".txt")), 'r', encoding='utf-8')
+                self.exercise = exercise_file.readline()
+                self.exercise_info = exercise_file.readlines()  # вся информация упражнения
+                exercise_file.close()
+
                 self.num_of_set = int(self.num_of_set.replace('\n', ''))  # кол-во упражнений
-                self.exercise = self.exercise.replace('\n', '')  # само упражнение
-                exercise_file_name = str(f'{self.exercise}.txt')  # название файла упражнения
                 self.nums_of_set.append(self.num_of_set)
 
                 # файл упражнения
-                exercise_file = open(path.join('exercises', exercise_file_name), 'r', encoding='utf-8')
-                self.exercise_info = exercise_file.readlines()  # вся информация упражнения
                 type_of_exercise = self.exercise_info[3]  # тип упражнения (время или повторы)
                 type_of_exercise = type_of_exercise.replace("\n", "")
                 self.rest_time = self.exercise_info[1]  # время отдыха у упражнения
@@ -521,7 +530,7 @@ class SecondScreen(MDScreen):
                 upper_exc_layout.ids["exc_name_lbl"] = exercise_name_lbl
                 btn_exercise_settings = MDIconButton(icon='dots-vertical', size_hint=(None, None),
                                                      size=('30dp', '30dp'))  # , style='outlined'
-                btn_exercise_settings.bind(on_press=partial(self.open_settings, self.exercise, some_layout))
+                btn_exercise_settings.bind(on_press=partial(self.open_settings, self.exercise_name, some_layout))
                 upper_exc_layout.add_widget(btn_exercise_settings)
                 some_layout.add_widget(upper_exc_layout)
                 some_layout.ids["upper_layout"] = upper_exc_layout
@@ -608,7 +617,7 @@ class SecondScreen(MDScreen):
         print("num_of_exercise: ", num_of_exercise)
         exercise_set_layout_holder = ExerciseSetLayout(size_hint_y=None, adaptive_height=True,
                                                        num_of_exc=num_of_exercise, num_of_set=number_of_set,
-                                                       screen="Second")
+                                                       screen="Second", height=exercise_input.height*1.2)
         exercise_set_layout_holder.ids["front_box"].add_widget(exercise_set_layout)
         exercise_set_layout_holder.ids["front_box"].ids["exercise_set_layout"] = exercise_set_layout
         set_layout.add_widget(exercise_set_layout_holder)
@@ -625,8 +634,7 @@ class SecondScreen(MDScreen):
         some_layout = holder.parent  # The some_layout that is the parent of the holder
         some_layout.ids["add_set_btn"].num_of_set -= 1
         # holder = child_var[layout.num_of_exc - 1].ids["holder"]   The needed holder
-        holder.remove_widget(layout)  # holder.children.reversed()[layout.num_of_set]. This was a line of code
-        # that was in the parentheses of remove_widget(). Why is it so complicated????
+        holder.remove_widget(layout)
         self.nums_of_set[layout.num_of_exc - 1] -= 1
 
         holder_children = holder.children[:]
@@ -646,6 +654,13 @@ class SecondScreen(MDScreen):
         app.change_to_Sixth(rest_time)
 
     def add_exercise(self, widget, *args):
+        """
+
+        :param widget: it is the normal name of the exercise
+        :param args:
+        :return:
+        """
+        #TODO: check for this!!
         self.num_of_exercise += 1
         self.all_exercise_input_items.append([])
         exc_name = str(widget.text)
@@ -655,42 +670,45 @@ class SecondScreen(MDScreen):
         self.additional_primary_info.append(exc_name)
 
         # файл упражнения
-        exercise_file = open(path.join('exercises', (exc_name + ".txt")), 'r', encoding='utf-8')
-        self.exercise_info = exercise_file.readlines()  # вся информация упражнения
-        type_of_exercise = self.exercise_info[3]  # тип упражнения (время или повторы)
-        type_of_exercise = type_of_exercise.replace("\n", "")
-        self.rest_time = self.exercise_info[1]  # время отдыха у упражнения
-        exercise_file.close()
+        for exercise_file in listdir("exercises"):
+            exercise_file = open(path.join("exercises", exercise_file), "r", encoding='utf-8')
+            exercise_name = (exercise_file.readline()).replace("\n", "")  # Название упражнения
+            if exc_name == exercise_name:
+                self.exercise_info = exercise_file.readlines()  # вся информация упражнения
+                type_of_exercise = self.exercise_info[3]  # тип упражнения (время или повторы)
+                type_of_exercise = type_of_exercise.replace("\n", "")
+                self.rest_time = self.exercise_info[1]  # время отдыха у упражнения
+                exercise_file.close()
 
-        upper_exc_layout = MDBoxLayout(orientation='horizontal', size_hint=(1, None), height='20dp')
-        exercise_name_lbl = MDLabel(text=self.exercise, size_hint_y=None, height="30dp", adaptive_height=True)
-        upper_exc_layout.add_widget(exercise_name_lbl)
-        upper_exc_layout.ids["exc_name_lbl"] = exercise_name_lbl
-        btn_exercise_settings = MDIconButton(icon='dots-vertical', size_hint=(None, None),
-                                             size=('30dp', '30dp'))  # , style='outlined'
-        btn_exercise_settings.bind(on_press=self.open_settings)
-        upper_exc_layout.add_widget(btn_exercise_settings)
-        some_layout.add_widget(upper_exc_layout)
-        some_layout.ids["upper_layout"] = upper_exc_layout
-        exercise_type_lbl = MDLabel(text=type_of_exercise, size_hint_y=None, height="30dp",
-                                    adaptive_height=True)
-        some_layout.add_widget(exercise_type_lbl)
+                upper_exc_layout = MDBoxLayout(orientation='horizontal', size_hint=(1, None), height='20dp')
+                exercise_name_lbl = MDLabel(text=self.exercise, size_hint_y=None, height="30dp", adaptive_height=True)
+                upper_exc_layout.add_widget(exercise_name_lbl)
+                upper_exc_layout.ids["exc_name_lbl"] = exercise_name_lbl
+                btn_exercise_settings = MDIconButton(icon='dots-vertical', size_hint=(None, None),
+                                                     size=('30dp', '30dp'))  # , style='outlined'
+                btn_exercise_settings.bind(on_press=self.open_settings)
+                upper_exc_layout.add_widget(btn_exercise_settings)
+                some_layout.add_widget(upper_exc_layout)
+                some_layout.ids["upper_layout"] = upper_exc_layout
+                exercise_type_lbl = MDLabel(text=type_of_exercise, size_hint_y=None, height="30dp",
+                                            adaptive_height=True)
+                some_layout.add_widget(exercise_type_lbl)
 
-        holder = MDBoxLayout(orientation='vertical', size_hint=(1, None), adaptive_height=True)
-        some_layout.add_widget(holder)
-        some_layout.ids["holder"] = holder
+                holder = MDBoxLayout(orientation='vertical', size_hint=(1, None), adaptive_height=True)
+                some_layout.add_widget(holder)
+                some_layout.ids["holder"] = holder
 
-        self.add_set(number_of_set=0, num_of_exercise=self.num_of_exercise, set_layout=holder,
-                     type_of_exc=type_of_exercise, rest_time=self.rest_time)
+                self.add_set(number_of_set=0, num_of_exercise=self.num_of_exercise, set_layout=holder,
+                             type_of_exc=type_of_exercise, rest_time=self.rest_time)
 
-        add_set_btn = AddSetMDButton(pos_hint={"center_x": .5}, num_of_exc=self.num_of_exercise,
-                                     num_of_set=1, type_of_exc=type_of_exercise, r_time=self.rest_time)
-        print("self.num_of_exercise: ", self.num_of_exercise)
+                add_set_btn = AddSetMDButton(pos_hint={"center_x": .5}, num_of_exc=self.num_of_exercise,
+                                             num_of_set=1, type_of_exc=type_of_exercise, r_time=self.rest_time)
+                print("self.num_of_exercise: ", self.num_of_exercise)
 
-        some_layout.add_widget(add_set_btn)
-        some_layout.ids["add_set_btn"] = add_set_btn
-        self.parent_layout.add_widget(some_layout)
-        self.updated = True
+                some_layout.add_widget(add_set_btn)
+                some_layout.ids["add_set_btn"] = add_set_btn
+                self.parent_layout.add_widget(some_layout)
+                self.updated = True
 
     def open_settings(self, exercise, layout, initiator):
         menu_items = [
@@ -728,6 +746,9 @@ class SecondScreen(MDScreen):
         self.training_time = 0
         if self.updated:
             self.confirm_update()
+        else:
+            app.change_to_First(True)
+            self.past_template = None
 
     def update_template_info(self, primary=False, additional=False, *args):
         """
@@ -750,7 +771,7 @@ class SecondScreen(MDScreen):
             num_of_set = 0
             num_of_exercise += 1
             upper_layout = child.ids["upper_layout"]
-            name_of_exc = upper_layout.ids["exc_name_lbl"].text
+            name_of_exc = (upper_layout.ids["exc_name_lbl"].text).replace("\n", "")
             holder = child.ids["holder"]
             children_var_1 = holder.children
             children_var_1.reverse()
@@ -772,27 +793,38 @@ class SecondScreen(MDScreen):
                 except IndexError:  # Если нет time
                     print("time=False")
                     continue
-            all_primary_info.append(str(num_of_set) + "\n")
-            all_primary_info.append(name_of_exc + "\n")
 
-            if primary or additional:
-                with open(path.join("templates", self.current_template), "w", encoding="utf-8") as file:
-                    # I'm 100% sure that there is a better way to do this.
-                    if primary and additional:
-                        for info_item in all_primary_info:
-                            file.write(info_item)
-                        for info_item in all_additional_info:
-                            file.write(info_item + ", ")
-                    elif primary:
-                        for info_item in all_primary_info:
-                            file.write(info_item)
-                        for info_item in old_additional_info:
-                            file.write(info_item + ", ")
-                    elif additional:
-                        for info_item in old_primary_info:
-                            file.write(info_item)
-                        for info_item in all_additional_info:
-                            file.write(info_item + ", ")
+            for exc in listdir("exercises"):
+                exc_file = open(path.join("exercises", exc), "r", encoding='utf-8')
+                print("NAME_OF_EXC: ", name_of_exc)
+                x = exc_file.readline()
+                exc_file.close()
+                print("exc_file.readline(): ", x)
+                if name_of_exc == (x.replace("\n", "")):
+                    print("CONFIRM!")
+                    new_name_of_exc = (exc).replace("exercises\\", "")
+                    all_primary_info.append(str(num_of_set) + "\n")
+                    all_primary_info.append(str(new_name_of_exc.replace(".txt", "")) + "\n")
+
+        if primary or additional:
+            with open(path.join("templates", self.current_template), "w", encoding="utf-8") as file:
+                file.write(self.name_var_22 + "\n")
+                print("current_template: ", self.current_template)
+                if primary and additional:
+                    for info_item in all_primary_info:
+                        file.write(info_item)
+                    for info_item in all_additional_info:
+                        file.write(info_item + ", ")
+                elif primary:
+                    for info_item in all_primary_info:
+                        file.write(info_item)
+                    for info_item in old_additional_info:
+                        file.write(info_item + ", ")
+                elif additional:
+                    for info_item in old_primary_info:
+                        file.write(info_item)
+                    for info_item in all_additional_info:
+                        file.write(info_item + ", ")
         app.change_to_First(True)
         self.confirm_dialog.dismiss()
         self.past_template = None
@@ -981,7 +1013,11 @@ class My_MDTextField(MDTextField):
                 time_val = self.all_additional_info[starting_index + 2]
                 if self.type_of_exc == "Время":
                     # I wrote replace() here for a reason.
-                    text_value = convert_seconds_to_text(int(str(time_val).replace(",", "")))
+                    try:
+                        text_value = convert_seconds_to_text(int(str(time_val).replace(",", "")))
+                    except ValueError:
+                        # Это значит, что тут ничего нет
+                        text_value = ""
                 else:
                     text_value = time_val
                 break
@@ -1064,49 +1100,53 @@ class ThirdScreen(MDScreen):
     def add_exercise(self, widget):
         self.num_of_exercise += 1
         exc_name = widget.text
-        exc_file = open(path.join("exercises", (exc_name + ".txt")), "r", encoding='utf-8')
-        s_name, rest_time, muscles, exc_type, image, *instructions = exc_file.readlines()
+        for exercise_file in listdir("exercises"):
+            exercise_file = open(path.join("exercises",exercise_file), "r", encoding='utf-8')
+            exercise_name = (exercise_file.readline()).replace("\n", "")  # Название упражнения
+            if exc_name == exercise_name:
+                exercise_file_name = str(exercise_file).replace(".txt", "")
+                s_name, rest_time, muscles, exc_type, image, *instructions = exercise_file.readlines()
 
-        some_layout = MDBoxLayout(orientation="vertical", size_hint=(1, None),
-                                  padding='10dp', spacing='10dp', adaptive_height=True)
+                some_layout = MDBoxLayout(orientation="vertical", size_hint=(1, None),
+                                          padding='10dp', spacing='10dp', adaptive_height=True)
 
-        exc_name_lbl = MDLabel(text=exc_name, size_hint=(1, None), height="20dp",
-                               pos_hint={"center_x": .5, "center_y": .5}, adaptive_height=True)
+                exc_name_lbl = MDLabel(text=exc_name, size_hint=(1, None), height="20dp",
+                                       pos_hint={"center_x": .5, "center_y": .5}, adaptive_height=True)
 
-        exc_menu_btn = MDIconButton(icon="dots-vertical", size_hint=(None, None),
-                                    size=("60dp", "60dp"),
-                                    pos_hint={"center_x": .5, "center_y": .5})
-        exc_menu_btn.bind(on_press=partial(self.menu_open, layout=some_layout, exercise=exc_name))
+                exc_menu_btn = MDIconButton(icon="dots-vertical", size_hint=(None, None),
+                                            size=("60dp", "60dp"),
+                                            pos_hint={"center_x": .5, "center_y": .5})
+                exc_menu_btn.bind(on_press=partial(self.menu_open, layout=some_layout, exercise=exercise_file_name))
 
-        upper_exercise_layout = MDBoxLayout(orientation="horizontal", size_hint=(1, None), padding="5dp",
-                                            spacing="5dp", adaptive_height=True)
-        upper_exercise_layout.add_widget(exc_name_lbl)
-        upper_exercise_layout.add_widget(exc_menu_btn)
-        upper_exercise_layout.ids["exc_name_lbl"] = exc_name_lbl
-        # upper_exercise_layout.ids["exc_menu_btn"] = exc_menu_btn
-        some_layout.add_widget(upper_exercise_layout)
-        some_layout.ids["upper_layout"] = upper_exercise_layout
+                upper_exercise_layout = MDBoxLayout(orientation="horizontal", size_hint=(1, None), padding="5dp",
+                                                    spacing="5dp", adaptive_height=True)
+                upper_exercise_layout.add_widget(exc_name_lbl)
+                upper_exercise_layout.add_widget(exc_menu_btn)
+                upper_exercise_layout.ids["exc_name_lbl"] = exc_name_lbl
+                # upper_exercise_layout.ids["exc_menu_btn"] = exc_menu_btn
+                some_layout.add_widget(upper_exercise_layout)
+                some_layout.ids["upper_layout"] = upper_exercise_layout
 
-        exc_type_lbl = MDLabel(text=exc_type, size_hint=(.8, None), height="60dp",
-                               pos_hint={"center_x": .5, "center_y": .5}, adaptive_height=True)
-        some_layout.add_widget(exc_type_lbl)
+                exc_type_lbl = MDLabel(text=exc_type, size_hint=(.8, None), height="60dp",
+                                       pos_hint={"center_x": .5, "center_y": .5}, adaptive_height=True)
+                some_layout.add_widget(exc_type_lbl)
 
-        holder = MDBoxLayout(orientation="vertical", size_hint=(1, None), padding='10dp',
-                             spacing='10dp', adaptive_height=True)
+                holder = MDBoxLayout(orientation="vertical", size_hint=(1, None), padding='10dp',
+                                     spacing='10dp', adaptive_height=True)
 
-        # self.nums_of_set[self.num_of_exercise-1].append(0)
-        self.nums_of_set.append(0)
-        self.add_set(layout=holder, type_of_exc=exc_type, num_of_exc=self.num_of_exercise, num_of_set=1)
+                # self.nums_of_set[self.num_of_exercise-1].append(0)
+                self.nums_of_set.append(0)
+                self.add_set(layout=holder, type_of_exc=exc_type, num_of_exc=self.num_of_exercise, num_of_set=1)
 
-        some_layout.add_widget(holder)
-        some_layout.ids["holder"] = holder
+                some_layout.add_widget(holder)
+                some_layout.ids["holder"] = holder
 
-        add_set_btn = AddSetMDButton(num_of_exc=self.num_of_exercise, pos_hint={"center_x": .5, "center_y": .5},
-                                     num_of_set=(self.nums_of_set[self.num_of_exercise - 1] + 1), type_of_exc=exc_type,
-                                     r_time=rest_time)
-        some_layout.add_widget(add_set_btn)
-        some_layout.ids["add_set_btn"] = add_set_btn
-        self.parent_layout.add_widget(some_layout)
+                add_set_btn = AddSetMDButton(num_of_exc=self.num_of_exercise, pos_hint={"center_x": .5, "center_y": .5},
+                                             num_of_set=(self.nums_of_set[self.num_of_exercise - 1] + 1), type_of_exc=exc_type,
+                                             r_time=rest_time)
+                some_layout.add_widget(add_set_btn)
+                some_layout.ids["add_set_btn"] = add_set_btn
+                self.parent_layout.add_widget(some_layout)
 
     def add_set_btn_command(self, num_of_set, num_of_exercise, type_of_exc, layout, instance, rest_time):
         instance.num_of_set += 1
@@ -1118,17 +1158,17 @@ class ThirdScreen(MDScreen):
         print("self.nums_of_set: ", self.nums_of_set)
         self.nums_of_set[num_of_exc - 1] += 1
 
-        set_layout_holder = ExerciseSetLayout(size_hint_y=None, adaptive_height=True,
-                                              num_of_exc=num_of_exc, num_of_set=num_of_set,
-                                              screen="Third")
-
-        set_layout = MDBoxLayout(orientation="horizontal", size_hint=(1, None), padding='10dp', spacing='10dp',
+        set_layout = MDBoxLayout(orientation="horizontal", size_hint=(1, None), padding='2dp', spacing='2dp',
                                  adaptive_height=True)
 
         num_lbl = MDLabel(text=(str(num_of_set) + "-"), size_hint=(None, None),
                           size=("40dp", "40dp"), pos_hint={"center_y": .5}, adaptive_height=True)
 
-        time_input = MDTextField(pos_hint={"center_y": .5})
+        time_input = MDTextField(pos_hint={"center_y": .5}, height="40dp")
+
+        set_layout_holder = ExerciseSetLayout(size_hint_y=None, adaptive_height=True,
+                                              num_of_exc=num_of_exc, num_of_set=num_of_set,
+                                              screen="Third", height=time_input.height*1.2)
 
         if str(type_of_exc).replace("\n", "") == "Время":
             time_input.validator = "time"
@@ -1167,7 +1207,6 @@ class ThirdScreen(MDScreen):
         print("self.nums_of_set: ", self.nums_of_set)
 
     def delete_set(self, layout):
-        print("Im deleting a set for third screen! (actually not doing anything rn)")
 
         child_var = self.parent_layout.children[:]  # child_var are all some_layouts
         child_var.reverse()
@@ -1189,9 +1228,18 @@ class ThirdScreen(MDScreen):
         all_additional_info = []
         all_primary_info = []
         num_of_exercise = 0
-        template_name = self.name_input.text
-        print(template_name)
-        with open(path.join("templates", (str(template_name) + ".txt")), "w", encoding="utf-8") as file:
+        template_var = self.name_input.text
+        counter = 0
+
+        #tmpltX
+        for template in listdir("templates"):
+            template_name = str(template)
+            if template_name[0:5] == "tmplt":
+                counter = max(int(template_name[5]), counter)
+
+        counter += 1
+        new_template_name = "tmplt" + str(counter)
+        with open(path.join("templates", (str(new_template_name) + ".txt")), "w", encoding="utf-8") as file:
             children = self.parent_layout.children
             children.reverse()
             for child in children:  # child in this case being some_layout
@@ -1199,31 +1247,39 @@ class ThirdScreen(MDScreen):
                 num_of_exercise += 1
                 upper_layout = child.ids["upper_layout"]
                 name_of_exc = upper_layout.ids["exc_name_lbl"].text
-                holder = child.ids["holder"]
-                children_var_1 = holder.children
-                children_var_1.reverse()
-                for child_var in children_var_1:  # child_var being the set_layout
-                    try:
-                        num_of_set += 1
-                        print("num_of_set: ", num_of_set)
-                        child_var_2 = child_var.ids["front_box"].ids["exercise_set_layout"]
-                        type_of_exc = child_var_2.ids["time_input"].validator
+                for exc in listdir("exercises"):
+                    exc_file = open(path.join("exercises", exc), "r", encoding='utf-8')
+                    if name_of_exc == (exc_file.readline().replace("\n", "")):
+                        holder = child.ids["holder"]
+                        children_var_1 = holder.children
+                        children_var_1.reverse()
+                        for child_var in children_var_1:  # child_var being the set_layout
+                            try:
+                                num_of_set += 1
+                                print("num_of_set: ", num_of_set)
+                                child_var_2 = child_var.ids["front_box"].ids["exercise_set_layout"]
+                                type_of_exc = child_var_2.ids["time_input"].validator
 
-                        # Может быть и повторения, а не время
-                        time = child_var_2.ids["time_input"].text
+                                # Может быть и повторения, а не время
+                                time = child_var_2.ids["time_input"].text
 
-                        if type_of_exc == "time" and time:
-                            time = convert_text_to_seconds(time)
-                        else:
-                            print("type_of_exc: ", type_of_exc)
-                        # additional_info = str(num_of_exercise) + str(num_of_set) + str(time) + ", "
-                        all_additional_info.append(str(num_of_exercise))
-                        all_additional_info.append(str(num_of_set))
-                        all_additional_info.append(str(time))
-                    except IndexError:
-                        continue
-                all_primary_info.append(str(num_of_set) + "\n")
-                all_primary_info.append(name_of_exc + "\n")
+                                if type_of_exc == "time" and time:
+                                    time = convert_text_to_seconds(time)
+                                else:
+                                    print("type_of_exc: ", type_of_exc)
+                                # additional_info = str(num_of_exercise) + str(num_of_set) + str(time) + ", "
+                                all_additional_info.append(str(num_of_exercise))
+                                all_additional_info.append(str(num_of_set))
+                                all_additional_info.append(str(time))
+                            except IndexError:
+                                continue
+                        all_primary_info.append(str(num_of_set) + "\n")
+                        exc_file_name = (exc_file.name).replace("exercises\\", "")
+                        exc_file_name = exc_file_name.replace("exercises/", "")
+                        all_primary_info.append(str(exc_file_name).replace(".txt", "") + "\n")
+                        print("AAAAAAAAAA:", str(exc_file))
+                    exc_file.close()
+            file.write(template_var + "\n")
             for info_item in all_primary_info:
                 file.write(info_item)
             for info_item in all_additional_info:
@@ -1241,22 +1297,23 @@ class FourthScreen(MDScreen):
         super(FourthScreen, self).__init__(**kwargs)
 
     def make_info_popup(self, widget):
-        filename = widget.text + ".txt"
-        file = open(path.join('exercises', filename), 'r', encoding='utf-8')
-        # Имя на санскрите, время отдыха, рабочие группы мышц (или функция упражнения, или его польза)
-        # Тип упражнения (время или повторения), фото упражнения,
-        # как делать упражнение, соответственно:
-        s_name, rest_time, muscles, exc_type, image, *instructions = file.readlines()
+        for exc_file in listdir("exercises"):
+            exc_file = open(path.join("exercises", exc_file), "r", encoding='utf-8')
+            if (exc_file.readline().replace("\n", "")) == widget.text:
+                # Имя на санскрите, время отдыха, рабочие группы мышц (или функция упражнения, или его польза)
+                # Тип упражнения (время или повторения), фото упражнения,
+                # как делать упражнение, соответственно:
+                s_name, rest_time, muscles, exc_type, image, *instructions = exc_file.readlines()
 
-        s_name = str(s_name)
-        muscles = str(muscles)
-        exc_type = str(exc_type)
-        lbl_text = [str(s_name), str(exc_type), str(muscles)]
-        for instruction in instructions:
-            lbl_text.append(instruction)
-        for x in lbl_text:
-            x = x.replace("\n", "")
-        file.close()
+                s_name = str(s_name)
+                muscles = str(muscles)
+                exc_type = str(exc_type)
+                lbl_text = [str(s_name), str(exc_type), str(muscles)]
+                for instruction in instructions:
+                    lbl_text.append(instruction)
+                for x in lbl_text:
+                    x = x.replace("\n", "")
+                exc_file.close()
 
         # TODO: find a way to make the dialog bigger (in height)
         self.dialog = MDDialog(
@@ -1312,16 +1369,19 @@ class CustomOneLineIconListItem(MDListItem):
     text = StringProperty()
 
 
-# Yes I did steal it from icon_definitions.py. Deal with it.
 class PreviousExercises(MDScreen):
     def set_list_md_icons(self, text="", search=False):
         """Builds a list of exercises for the FourthScreen."""
 
         def add_exercise_item(name_exercise):
+            exc_file = open(path.join("exercises", (name_exercise + ".txt")), "r", encoding='utf-8')
+            exc_name = (exc_file.readline()).replace("\n", "")
+            exc_file.close()
+
             self.ids.rv.data.append(
                 {
                     "viewclass": "CustomOneLineIconListItem",
-                    "text": name_exercise,
+                    "text": exc_name,
                     "callback": lambda x: x,
                 }
             )
@@ -1405,7 +1465,7 @@ class FifthScreen(MDScreen):
     def rest(self, time, initiator):
         print(f"I start timer with {time} time. I was initialized by: {initiator}")
         if not self.need_to_rest:
-            write_new_exercise_rest_time(time, self.exercise_that_needs_to_change_time)
+            write_new_exercise_rest_time(time, self.exercise_that_needs_to_change_time.replace("\n", ""))
             self.exercise_that_needs_to_change_time = None
             app.change_to_screen(self.past_screen)
         # self.progress_bar.duration = int(time)

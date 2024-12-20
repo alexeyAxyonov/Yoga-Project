@@ -6,7 +6,8 @@ def convert_text_to_seconds(value):
     :param value: the text that needs to be converted into seconds.
     :return: Seconds.
     """
-
+    if not value:
+        return ""
     value = value.split(":")
     seconds = int(value[-1])
     print("seconds: ", seconds)
